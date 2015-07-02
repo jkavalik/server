@@ -2025,6 +2025,16 @@ static Sys_var_mybool Sys_gtid_ignore_duplicates(
        DEFAULT(FALSE), NO_MUTEX_GUARD,
        NOT_IN_BINLOG, ON_CHECK(check_gtid_ignore_duplicates),
        ON_UPDATE(fix_gtid_ignore_duplicates));
+
+static Sys_var_mybool Sys_gtid_log_all_lock_conflicts(
+       "gtid_log_all_lock_conflicts",
+       "Debugging option. When set, an entry is logged in the error log "
+       "whenever one transaction had to wait for the row lock of another "
+       "transaction, along with the GTIDs of each transaction. Only works for "
+       "transactions executed by a slave thread.",
+       GLOBAL_VAR(opt_gtid_log_all_lock_conflicts), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE), NO_MUTEX_GUARD,
+       NOT_IN_BINLOG);
 #endif
 
 

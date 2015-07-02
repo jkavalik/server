@@ -4490,6 +4490,13 @@ thd_report_wait_for(MYSQL_THD thd, MYSQL_THD other_thd)
   other_rgi= other_thd->rgi_slave;
   if (!rgi || !other_rgi)
     return;
+  if (opt_gtid_log_all_lock_conflicts)
+    sql_print_warning("Lock wait, GTID %u-%u-%llu waits for %u-%u-%llu",
+                      rgi->current_gtid.domain_id, rgi->current_gtid.server_id,
+                      (ulonglong)rgi->current_gtid.seq_no,
+                      other_rgi->current_gtid.domain_id,
+                      other_rgi->current_gtid.server_id,
+                      (ulonglong)other_rgi->current_gtid.seq_no);
   if (!rgi->is_parallel_exec)
     return;
   if (rgi->rli != other_rgi->rli)
