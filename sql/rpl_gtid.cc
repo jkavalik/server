@@ -124,6 +124,7 @@ rpl_slave_state::check_duplicate_gtid(rpl_gtid *gtid, rpl_group_info *rgi)
   PSI_stage_info old_stage;
   THD *thd;
   Relay_log_info *rli= rgi->rli;
+  ulonglong *old_phase= NULL;
 
   mysql_mutex_lock(&LOCK_slave_state);
   if (!(elem= get_element(domain_id)))
@@ -177,6 +178,9 @@ rpl_slave_state::check_duplicate_gtid(rpl_gtid *gtid, rpl_group_info *rgi)
     */
     if (!did_enter_cond)
     {
+      if (rgi->is_parallel_exec)
+        old_phase=
+          thd->update_slave_time_status(&slave_parallel_wait_duplicate_gtid);
       thd->ENTER_COND(&elem->COND_gtid_ignore_duplicates, &LOCK_slave_state,
                       &stage_gtid_wait_other_connection, &old_stage);
       did_enter_cond= true;
@@ -187,7 +191,11 @@ rpl_slave_state::check_duplicate_gtid(rpl_gtid *gtid, rpl_group_info *rgi)
 
 err:
   if (did_enter_cond)
+  {
     thd->EXIT_COND(&old_stage);
+    if (rgi->is_parallel_exec)
+      thd->update_slave_time_status(old_phase);
+  }
   else
     mysql_mutex_unlock(&LOCK_slave_state);
   return res;

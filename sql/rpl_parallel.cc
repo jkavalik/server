@@ -348,6 +348,9 @@ retry_event_group(rpl_group_info *rgi, rpl_parallel_thread *rpt,
   rpl_parallel_entry *entry= rgi->parallel_entry;
   ulong retries= 0;
   Format_description_log_event *description_event= NULL;
+  ulonglong *prev_phase;
+
+  prev_phase= thd->update_slave_time_status(&slave_parallel_trx_retry);
 
 do_retry:
   event_count= 0;
@@ -630,6 +633,7 @@ err:
   }
   if (errmsg)
     sql_print_error("Error reading relay log event: %s", errmsg);
+  thd->update_slave_time_status(prev_phase);
   return err;
 }
 
@@ -698,6 +702,7 @@ handle_rpl_parallel_thread(void *arg)
   {
     rpl_parallel_thread::queued_event *qev, *next_qev;
 
+    thd->update_slave_time_status(&slave_parallel_idle);
     thd->ENTER_COND(&rpt->COND_rpl_thread, &rpt->LOCK_rpl_thread,
                     &stage_waiting_for_work_from_sql_thread, &old_stage);
     /*
@@ -717,6 +722,7 @@ handle_rpl_parallel_thread(void *arg)
       mysql_cond_wait(&rpt->COND_rpl_thread, &rpt->LOCK_rpl_thread);
     rpt->dequeue1(events);
     thd->EXIT_COND(&old_stage);
+    thd->update_slave_time_status(&slave_parallel_processing);
 
   more_events:
     for (qev= events; qev; qev= next_qev)
@@ -825,6 +831,7 @@ handle_rpl_parallel_thread(void *arg)
         wait_count= gco->wait_count;
         if (wait_count > entry->count_committing_event_groups)
         {
+          thd->update_slave_time_status(&slave_parallel_wait_group);
           DEBUG_SYNC(thd, "rpl_parallel_start_waiting_for_prior");
           thd->ENTER_COND(&gco->COND_group_commit_orderer,
                           &entry->LOCK_parallel_entry,
@@ -852,6 +859,7 @@ handle_rpl_parallel_thread(void *arg)
             mysql_cond_wait(&gco->COND_group_commit_orderer,
                             &entry->LOCK_parallel_entry);
           } while (wait_count > entry->count_committing_event_groups);
+          thd->update_slave_time_status(&slave_parallel_processing);
         }
 
         if (entry->force_abort && wait_count > entry->stop_count)
@@ -1041,6 +1049,7 @@ handle_rpl_parallel_thread(void *arg)
     }
   }
 
+  thd->update_slave_time_status(NULL);
   rpt->thd= NULL;
   mysql_mutex_unlock(&rpt->LOCK_rpl_thread);
 

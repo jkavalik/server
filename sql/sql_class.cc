@@ -948,6 +948,7 @@ THD::THD(bool is_wsrep_applier)
   lex->current_select= 0;
   user_time.val= start_time= start_time_sec_part= 0;
   start_utime= utime_after_query= prior_thr_create_utime= 0L;
+  slave_worker_next_phase= NULL;
   utime_after_lock= 0L;
   progress.arena= 0;
   progress.report_to_client= 0;
@@ -6919,7 +6920,9 @@ wait_for_commit::wait_for_prior_commit2(THD *thd)
 {
   PSI_stage_info old_stage;
   wait_for_commit *loc_waitee;
+  ulonglong *prev_phase;
 
+  prev_phase= thd->update_slave_time_status(&slave_parallel_wait_prior);
   mysql_mutex_lock(&LOCK_wait_commit);
   DEBUG_SYNC(thd, "wait_for_prior_commit_waiting");
   thd->ENTER_COND(&COND_wait_commit, &LOCK_wait_commit,
@@ -6931,7 +6934,7 @@ wait_for_commit::wait_for_prior_commit2(THD *thd)
   {
     if (wakeup_error)
       my_error(ER_PRIOR_COMMIT_FAILED, MYF(0));
-    goto end;
+    goto err;
   }
   /*
     Wait was interrupted by kill. We need to unregister our wait and give the
@@ -6951,7 +6954,7 @@ wait_for_commit::wait_for_prior_commit2(THD *thd)
     } while (this->waitee);
     if (wakeup_error)
       my_error(ER_PRIOR_COMMIT_FAILED, MYF(0));
-    goto end;
+    goto err;
   }
   remove_from_list(&loc_waitee->subsequent_commits_list);
   mysql_mutex_unlock(&loc_waitee->LOCK_wait_commit);
@@ -6967,10 +6970,13 @@ wait_for_commit::wait_for_prior_commit2(THD *thd)
     use within enter_cond/exit_cond.
   */
   DEBUG_SYNC(thd, "wait_for_prior_commit_killed");
-  return wakeup_error;
+  goto end;
+
+err:
+  thd->EXIT_COND(&old_stage);
 
 end:
-  thd->EXIT_COND(&old_stage);
+  thd->update_slave_time_status(prev_phase);
   return wakeup_error;
 }
 

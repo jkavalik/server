@@ -521,6 +521,9 @@ ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
 ulong extra_max_connections;
 uint max_digest_length= 0;
+ulonglong slave_parallel_idle, slave_parallel_processing,
+  slave_parallel_trx_retry, slave_parallel_wait_group,
+  slave_parallel_wait_prior, slave_parallel_wait_duplicate_gtid;
 ulong slave_retried_transactions;
 ulonglong slave_skipped_errors;
 ulong feature_files_opened_with_delayed_keys;
@@ -8341,6 +8344,12 @@ SHOW_VAR status_vars[]= {
   {"Slave_open_temp_tables",   (char*) &slave_open_temp_tables, SHOW_INT},
 #ifdef HAVE_REPLICATION
   {"Slave_heartbeat_period",   (char*) &show_heartbeat_period, SHOW_SIMPLE_FUNC},
+  {"Slave_parallel_idle",      (char*) &slave_parallel_idle, SHOW_LONGLONG},
+  {"Slave_parallel_processing",(char*) &slave_parallel_processing, SHOW_LONGLONG},
+  {"Slave_parallel_trx_retry", (char*) &slave_parallel_trx_retry, SHOW_LONGLONG},
+  {"Slave_parallel_wait_duplicate_gtid",(char*) &slave_parallel_wait_duplicate_gtid, SHOW_LONGLONG},
+  {"Slave_parallel_wait_group",(char*) &slave_parallel_wait_group, SHOW_LONGLONG},
+  {"Slave_parallel_wait_prior",(char*) &slave_parallel_wait_prior, SHOW_LONGLONG},
   {"Slave_received_heartbeats",(char*) &show_slave_received_heartbeats, SHOW_SIMPLE_FUNC},
   {"Slave_retried_transactions",(char*)&slave_retried_transactions, SHOW_LONG},
   {"Slave_running",            (char*) &show_slave_running,     SHOW_SIMPLE_FUNC},

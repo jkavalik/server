@@ -119,6 +119,9 @@ extern my_bool opt_safe_user_create;
 extern my_bool opt_safe_show_db, opt_local_infile, opt_myisam_use_mmap;
 extern my_bool opt_slave_compressed_protocol, use_temp_pool;
 extern ulong slave_exec_mode_options, slave_ddl_exec_mode_options;
+extern ulonglong slave_parallel_idle, slave_parallel_processing,
+  slave_parallel_trx_retry, slave_parallel_wait_group,
+  slave_parallel_wait_prior, slave_parallel_wait_duplicate_gtid;
 extern ulong slave_retried_transactions;
 extern ulong slave_run_triggers_for_rbr;
 extern ulonglong slave_type_conversions_options;
