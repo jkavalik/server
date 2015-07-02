@@ -676,6 +676,16 @@ struct rpl_group_info
   uint64 retry_start_offset;
   uint64 retry_event_count;
   /*
+    If deadlock killed (killed_for_retry==true), this is the sub_id of the
+    killing GTID, and the wait_for_commit pointer to wait on if that sub_id is
+    still active. This is used in aggressive parallel replication mode to wait
+    only for the transaction we actually conflicted with before retrying, not
+    for all prior transactions.
+  */
+  uint64_t deadlock_kill_wait_commit_sub_id;
+  wait_for_commit *deadlock_kill_wfc;
+
+  /*
     If `speculation' is != SPECULATE_NO, then we are optimistically running
     this transaction in parallel, even though it might not be safe (there may
     be a conflict with a prior event group).

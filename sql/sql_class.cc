@@ -4515,8 +4515,10 @@ thd_report_wait_for(MYSQL_THD thd, MYSQL_THD other_thd)
     cause replication to rollback (and later re-try) the other transaction,
     releasing the lock for this transaction so replication can proceed.
   */
-  other_rgi->killed_for_retry= true;
   mysql_mutex_lock(&other_thd->LOCK_thd_data);
+  other_rgi->deadlock_kill_wait_commit_sub_id= rgi->gtid_sub_id;
+  other_rgi->deadlock_kill_wfc= &rgi->commit_orderer;
+  other_rgi->killed_for_retry= true;
   other_thd->awake(KILL_CONNECTION);
   mysql_mutex_unlock(&other_thd->LOCK_thd_data);
 }
