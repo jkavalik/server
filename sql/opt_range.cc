@@ -120,6 +120,7 @@
 #include "sql_select.h"
 #include "sql_statistics.h"
 #include "filesort.h"         // filesort_free_buffers
+#include "sql_test.h"         // print_where
 
 #ifndef EXTRA_DEBUG
 #define test_rb_tree(A,B) {}
@@ -8225,7 +8226,6 @@ SEL_TREE *Item_func_null_predicate::get_mm_tree(RANGE_OPT_PARAM *param,
   DBUG_RETURN(NULL);
 }
 
-
 SEL_TREE *Item_bool_func2::get_mm_tree(RANGE_OPT_PARAM *param, Item **cond_ptr)
 {
   DBUG_ENTER("Item_bool_func2::get_mm_tree");
@@ -8243,7 +8243,50 @@ SEL_TREE *Item_bool_func2::get_mm_tree(RANGE_OPT_PARAM *param, Item **cond_ptr)
     if (value && value->is_expensive())
       DBUG_RETURN(0);
     if (!arguments()[0]->real_item()->const_item())
-      ftree= get_full_func_mm_tree(param, this, field_item, value, false);
+        ftree= get_full_func_mm_tree(param, this, field_item, value, false);
+  }
+  if ((arguments()[0]->type() == Item::FUNC_ITEM)
+      && (((Item_func*) arguments()[0])->argument_count() > 0)
+      && (((Item_func*) arguments()[0])->arguments()[0])->real_item()->type() == Item::FIELD_ITEM
+      && ((arguments()[1]->type() == Item::STRING_ITEM)
+          || (arguments()[1]->type() == Item::INT_ITEM)
+          // ? check field_type for MYSQL_TYPE_DATE too ?
+          || (arguments()[1]->type() == Item::DATE_ITEM)))
+  {
+    const char * fname = ((Item_func*) arguments()[0])->func_name();
+    if((0 == strcmp(fname, "cast_as_date")) || (0 == strcmp(fname, "year"))) {
+      Item_field *field_item= (Item_field*) ((((Item_func*) arguments()[0])->arguments()[0])->real_item());
+      Item *value= arguments()[1];
+      if (value && value->is_expensive())
+        DBUG_RETURN(0);
+
+      String *begin_string = new (param->old_root) String("", value->collation.collation);
+      begin_string->append(value->val_str()->ptr(),value->val_str()->length());
+      String *end_string = new (param->old_root) String("", value->collation.collation);
+      end_string->append(value->val_str()->ptr(),value->val_str()->length());
+      if(0 == strcmp(fname, "cast_as_date")) {
+        begin_string->append(" 00:00:00");
+        end_string->append(" 23:59:59");
+      }
+      if(0 == strcmp(fname, "year")) {
+        begin_string->append("-01-01 00:00:00");
+        end_string->append("-12-31 23:59:59");
+      }
+
+      Item_string *start_val = new (param->old_root) Item_string(value->name,begin_string->ptr(),
+                               begin_string->length(), value->collation.collation);
+      Item_string *end_val = new (param->old_root) Item_string(value->name,end_string->ptr(),
+                             end_string->length(), value->collation.collation);
+      Item *btw = new (param->old_root) Item_func_between(field_item, start_val, end_val);
+      btw->update_used_tables();
+      DBUG_EXECUTE("Item_bool_func2::get_mm_tree",print_where(this,"original cond", QT_ORDINARY););
+      DBUG_EXECUTE("Item_bool_func2::get_mm_tree",print_where(btw,"modified cond", QT_ORDINARY););
+      ftree = btw->get_mm_tree(param, &btw);
+      // This seems not possible, because array for Item_between argument list is freed too soon
+      // Is it allocated with current mem root? Is it somehow possible to change it to param->old_root
+      // Wanted to do it to test if the modification then shows in EXPLAIN EXTENDED
+      // *cond_ptr= btw;
+    }
   }
   /*
     Even if get_full_func_mm_tree() was executed above and did not
@@ -8270,6 +8313,52 @@ SEL_TREE *Item_bool_func2::get_mm_tree(RANGE_OPT_PARAM *param, Item **cond_ptr)
       DBUG_RETURN(0);
     if (!arguments()[1]->real_item()->const_item())
       ftree= get_full_func_mm_tree(param, this, field_item, value, false);
+  }
+  /*
+    Reversing applies to DATE/YEAR() = CONST too
+  */
+  if ((arguments()[1]->type() == Item::FUNC_ITEM)
+      && (((Item_func*) arguments()[1])->argument_count() > 0)
+      && (((Item_func*) arguments()[1])->arguments()[0])->real_item()->type() == Item::FIELD_ITEM
+      && ((arguments()[0]->type() == Item::STRING_ITEM)
+          || (arguments()[0]->type() == Item::INT_ITEM)
+          // ? check field_type for MYSQL_TYPE_DATE too ?
+          || (arguments()[0]->type() == Item::DATE_ITEM)))
+  {
+    const char * fname = ((Item_func*) arguments()[1])->func_name();
+    if((0 == strcmp(fname, "cast_as_date")) || (0 == strcmp(fname, "year"))) {
+      Item_field *field_item= (Item_field*) ((((Item_func*) arguments()[1])->arguments()[0])->real_item());
+      Item *value= arguments()[0];
+      if (value && value->is_expensive())
+        DBUG_RETURN(0);
+
+      String *begin_string = new (param->old_root) String("", value->collation.collation);
+      begin_string->append(value->val_str()->ptr(),value->val_str()->length());
+      String *end_string = new (param->old_root) String("", value->collation.collation);
+      end_string->append(value->val_str()->ptr(),value->val_str()->length());
+      if(0 == strcmp(fname, "cast_as_date")) {
+        begin_string->append(" 00:00:00");
+        end_string->append(" 23:59:59");
+      }
+      if(0 == strcmp(fname, "year")) {
+        begin_string->append("-01-01 00:00:00");
+        end_string->append("-12-31 23:59:59");
+      }
+
+      Item_string *start_val = new (param->old_root) Item_string(value->name,begin_string->ptr(),
+                               begin_string->length(), value->collation.collation);
+      Item_string *end_val = new (param->old_root) Item_string(value->name,end_string->ptr(),
+                               end_string->length(), value->collation.collation);
+      Item *btw = new (param->old_root) Item_func_between(field_item, start_val, end_val);
+      btw->update_used_tables();
+      DBUG_EXECUTE("Item_bool_func2::get_mm_tree",print_where(this,"original cond", QT_ORDINARY););
+      DBUG_EXECUTE("Item_bool_func2::get_mm_tree",print_where(btw,"modified cond", QT_ORDINARY););
+      ftree = btw->get_mm_tree(param, &btw);
+      // This seems not possible, because array for Item_between argument list is freed too soon
+      // Is it allocated with current mem root? Is it somehow possible to change it to param->old_root
+      // Wanted to do it to test if the modification then shows in EXPLAIN EXTENDED
+      // *cond_ptr= btw;
+    }
   }
 
   DBUG_RETURN(ftree);

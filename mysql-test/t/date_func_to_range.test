@@ -1,0 +1,45 @@
+#
+# test of date() optimization
+#
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (a char(16), b date, c datetime, key(b), key(c));
+insert into t1 SET a='test 2000-01-01', b='2000-01-01', c='2000-01-01';
+insert into t1 SET a='test 2000-01-01', b='2000-01-01', c='2000-01-01 21:55:13';
+
+explain select * from t1 where c = '2000-01-01';
+select * from t1 where c = '2000-01-01';
+
+explain select * from t1 where b = '2000-01-01';
+select * from t1 where b = '2000-01-01';
+
+explain select * from t1 where date(c) = '2000-01-01';
+select * from t1 where date(c) = '2000-01-01';
+
+explain select * from t1 where c between '2000-01-01' and '2000-01-02';
+select * from t1 where c between '2000-01-01' and '2000-01-02';
+
+explain select * from t1 where date(b) = '2000-01-01';
+select * from t1 where date(b) = '2000-01-01';
+
+explain select * from t1 where year(b) = 2000;
+select * from t1 where year(b) = 2000;
+
+explain select * from t1 where 2000 = year(b);
+select * from t1 where 2000 = year(b);
+
+explain select * from t1 where '2000-01-01' = date(c);
+select * from t1 where '2000-01-01' = date(c);
+
+explain select * from t1 where month(b) = 1;
+select * from t1 where month(b) = 1;
+
+explain select * from t1 ignore index(c) where date(c) = '2000-01-01';
+select * from t1 ignore index(c) where date(c) = '2000-01-01';
+
+explain select * from t1 ignore index(c) where c between '2000-01-01' and '2000-01-02';
+select * from t1 ignore index(c) where c between '2000-01-01' and '2000-01-02';
+
+drop table t1;

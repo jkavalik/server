@@ -4825,6 +4825,36 @@ Item_bool_func2::add_key_fields_optimize_op(JOIN *join, KEY_FIELD **key_fields,
                          (Item_field*) args[1]->real_item(), equal_func,
                          args, 1, usable_tables, sargables);
   }
+  if ((args[0]->type() == Item::FUNC_ITEM)
+      && (((Item_func*) args[0])->argument_count() > 0)
+      && is_local_field(((Item_func*) args[0])->arguments()[0])
+      && ((args[1]->type() == Item::STRING_ITEM)
+          || (args[1]->type() == Item::INT_ITEM)
+          // ? check field_type for MYSQL_TYPE_DATE too ?
+          || (args[1]->type() == Item::DATE_ITEM)))
+  {
+    const char * fname = ((Item_func*) args[0])->func_name();
+    if((0 == strcmp(fname, "cast_as_date")) || (0 == strcmp(fname, "year"))) {
+      add_key_equal_fields(join, key_fields, *and_level, this,
+                           (Item_field*) ((Item_func*) args[0])->arguments()[0]->real_item(), false,
+                           args + 1, 1, usable_tables, sargables);
+    }
+  }
+  if ((args[1]->type() == Item::FUNC_ITEM)
+      && (((Item_func*) args[1])->argument_count() > 0)
+      && is_local_field(((Item_func*) args[1])->arguments()[0])
+      && ((args[0]->type() == Item::STRING_ITEM)
+          || (args[0]->type() == Item::INT_ITEM)
+          // ? check field_type for MYSQL_TYPE_DATE too ?
+          || (args[0]->type() == Item::DATE_ITEM)))
+  {
+    const char * fname = ((Item_func*) args[1])->func_name();
+    if((0 == strcmp(fname, "cast_as_date")) || (0 == strcmp(fname, "year"))) {
+      add_key_equal_fields(join, key_fields, *and_level, this,
+                           (Item_field*) ((Item_func*) args[1])->arguments()[0]->real_item(), false,
+                           args, 1, usable_tables, sargables);
+    }
+  }
 }
 
 
